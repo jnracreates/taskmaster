@@ -54,7 +54,7 @@ after another in the order you configure.
 ### Manual install
 
 1. Download `taskmaster_x.y.z.w.zip` from the
-[Releases](https://github.com/jnracreates/jellyfin-plugin-taskmaster/releases) page.
+[Releases](https://github.com/jnracreates/taskmaster/releases) page.
 2. Extract it into your Jellyfin plugins folder. The exact path depends
 on your install:
 - **Docker:** `{config}/plugins/TaskMaster_x.y.z.w/`
