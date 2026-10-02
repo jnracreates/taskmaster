@@ -14,8 +14,8 @@
                 "changelog": "changelog: > changelog: > 1.0.0.2 - Sync the Scheduled Tasks trigger with the configured StartTime on save. 1.0.0.1 - Detect and import new tasks. 1.0.0.0 - Initial release.\n  - Sequential task execution with fastest-first or slowest-first ordering\n- Configurable time window with overnight support - Per-task day-of-week exclusions - Backup, restore, and download of native task triggers - Take over / Release workflow that preserves startup triggers - Detection of newly added and orphaned tasks - Drag-and-drop task reordering\n",
                 "targetAbi": "12.1.0.0",
                 "sourceUrl": "https://raw.githubusercontent.com/jnracreates/taskmaster/main/taskmaster/taskmaster_1.0.0.2.zip",
-                "checksum": "a1c47c45447448a13075ef19caa85c61",
-                "timestamp": "2026-10-02T15:52:46Z"
+                "checksum": "b5b8a07b184bf47837d77de2400b62ac",
+                "timestamp": "2026-10-02T15:56:45Z"
             },
             {
                 "version": "1.0.0.1",
