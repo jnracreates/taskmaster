@@ -2,36 +2,18 @@
     {
         "guid": "3388f1aa-2b91-4166-9d3b-727ad0755057",
         "name": "TaskMaster",
-        "description": "description: > Runs Jellyfin scheduled tasks sequentially inside a configurable time window, ordered by fastest or slowest completion time. Includes backup and restore of native triggers, a take-over/release workflow, and detection of newly added tasks.\n",
+        "description": "Runs Jellyfin scheduled tasks sequentially inside a configurable time window, ordered by fastest or slowest completion time. Includes backup and restore of native triggers, a take-over/release workflow, and detection of newly added tasks.",
         "overview": "Sequential task orchestrator for Jellyfin",
         "owner": "jnracreates",
         "category": "Administration",
-        "image": "logo.png",
-        "imageUrl": "https://raw.githubusercontent.com/jnracreates/taskmaster/main/taskmaster/logo.png",
         "versions": [
             {
                 "version": "1.0.0.2",
-                "changelog": "changelog: > changelog: > 1.0.0.2 - Sync the Scheduled Tasks trigger with the configured StartTime on save. 1.0.0.1 - Detect and import new tasks. 1.0.0.0 - Initial release.\n  - Sequential task execution with fastest-first or slowest-first ordering\n- Configurable time window with overnight support - Per-task day-of-week exclusions - Backup, restore, and download of native task triggers - Take over / Release workflow that preserves startup triggers - Detection of newly added and orphaned tasks - Drag-and-drop task reordering\n",
+                "changelog": "1.0.0.2 - Sync the Scheduled Tasks trigger with the configured StartTime on save. 1.0.0.1 - Auto-import new tasks; preserve startup triggers on take over. 1.0.0.0 - Initial release.",
                 "targetAbi": "12.1.0.0",
                 "sourceUrl": "https://raw.githubusercontent.com/jnracreates/taskmaster/main/taskmaster/taskmaster_1.0.0.2.zip",
-                "checksum": "b5b8a07b184bf47837d77de2400b62ac",
-                "timestamp": "2026-10-02T15:56:45Z"
-            },
-            {
-                "version": "1.0.0.1",
-                "changelog": "changelog: > Initial release.\n- Sequential task execution with fastest-first or slowest-first ordering - Configurable time window with overnight support - Per-task day-of-week exclusions - Backup, restore, and download of native task triggers - Take over / Release workflow that preserves startup triggers - Detection of newly added and orphaned tasks - Drag-and-drop task reordering\n",
-                "targetAbi": "12.1.0.0",
-                "sourceUrl": "https://raw.githubusercontent.com/jnracreates/taskmaster/main/taskmaster/taskmaster_1.0.0.1.zip",
-                "checksum": "7459a53643912c5980610199d4daadd3",
-                "timestamp": "2026-10-02T14:07:13Z"
-            },
-            {
-                "version": "1.0.0.0",
-                "changelog": "Initial release. Sequential task execution with fastest-first or slowest-first ordering. Configurable time window with overnight support. Per-task day-of-week exclusions. Backup, restore, and download of native task triggers. Take over / Release workflow that preserves startup triggers. Detection of newly added and orphaned tasks. Drag-and-drop task reordering.",
-                "targetAbi": "12.1.0.0",
-                "sourceUrl": "https://raw.githubusercontent.com/jnracreates/taskmaster/main/taskmaster/taskmaster_1.0.0.0.zip",
-                "checksum": "da0d537e34745bdaa1b47298729ccc49",
-                "timestamp": "2026-10-02T03:53:18Z"
+                "checksum": "599279518677c43def6a8eda3e79d36e",
+                "timestamp": "2026-10-02T16:00:02Z"
             }
         ]
     }

@@ -4,27 +4,10 @@ version: "1.0.0.2"
 targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Sequential task orchestrator for Jellyfin"
-description: >
-  description: >
-  Runs Jellyfin scheduled tasks sequentially inside a configurable time
-  window, ordered by fastest or slowest completion time. Includes backup
-  and restore of native triggers, a take-over/release workflow, and
-  detection of newly added tasks.
+description: "Runs Jellyfin scheduled tasks sequentially inside a configurable time window, ordered by fastest or slowest completion time. Includes backup and restore of native triggers, a take-over/release workflow, and detection of newly added tasks."
 category: "Administration"
 owner: "jnracreates"
 artifacts:
   - "Jellyfin.Plugin.TaskMaster.dll"
   - "logo.png"
-changelog: >
-  changelog: >
-  changelog: >
-  1.0.0.2 - Sync the Scheduled Tasks trigger with the configured StartTime on save.
-  1.0.0.1 - Detect and import new tasks.
-  1.0.0.0 - Initial release.
-    - Sequential task execution with fastest-first or slowest-first ordering
-  - Configurable time window with overnight support
-  - Per-task day-of-week exclusions
-  - Backup, restore, and download of native task triggers
-  - Take over / Release workflow that preserves startup triggers
-  - Detection of newly added and orphaned tasks
-  - Drag-and-drop task reordering
+changelog: "1.0.0.2 - Sync the Scheduled Tasks trigger with the configured StartTime on save. 1.0.0.1 - Auto-import new tasks; preserve startup triggers on take over. 1.0.0.0 - Initial release."
