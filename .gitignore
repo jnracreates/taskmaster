@@ -16,9 +16,9 @@ Thumbs.db
 # NuGet
 *.nupkg
 
-# JPRM build artifacts
-*.zip
-manifest.json
+# JPRM build artifacts are intentionally committed to this repo —
+# Jellyfin fetches them from the raw GitHub URL on the main branch.
+# Do NOT add *.zip or manifest.json here.
 
 # VS Code
 .vscode/
