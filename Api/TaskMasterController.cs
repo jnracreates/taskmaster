@@ -411,6 +411,136 @@ public class TaskMasterController : ControllerBase
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    //  Sync trigger
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Updates the orchestrator's daily trigger to fire at the configured
+    /// StartTime. Called from the config page after saving so the Scheduled
+    /// Tasks page and the TaskMaster window agree on when the sequence starts.
+    /// </summary>
+    [HttpPost("SyncTrigger")]
+    public ActionResult SyncTrigger()
+    {
+        var plugin = Plugin.Instance;
+        if (plugin is null)
+        {
+            return StatusCode(500, new { error = "Plugin not initialised." });
+        }
+
+        // Read StartTime from the in-memory config, but fall back to reading
+        // the XML file directly if the in-memory value is empty. Some Jellyfin
+        // 12.x builds don't deserialize plugin configs properly when the
+        // plugin is installed at runtime.
+        var startStr = plugin.Configuration?.StartTime;
+
+        if (string.IsNullOrWhiteSpace(startStr))
+        {
+            startStr = ReadStartTimeFromXml(plugin);
+            _logger.LogInformation(
+                "TaskMaster: in-memory StartTime was empty; fell back to XML value '{Value}'.",
+                startStr ?? "(null)");
+        }
+
+        var start = ParseTimeString(startStr);
+        if (start is null)
+        {
+            return Ok(new { synced = false, reason = "no start time configured" });
+        }
+
+        var worker = _taskManager.ScheduledTasks
+            .FirstOrDefault(w => w.ScheduledTask.Key == SequentialTaskOrchestrator.OrchestratorKey);
+
+        if (worker is null)
+        {
+            return NotFound(new { error = "Orchestrator task not registered." });
+        }
+
+        var triggers = worker.Triggers?.ToList() ?? new List<TaskTriggerInfo>();
+        var daily = triggers.FirstOrDefault(t => t.Type == TaskTriggerInfoType.DailyTrigger);
+
+        if (daily is null)
+        {
+            daily = new TaskTriggerInfo
+            {
+                Type = TaskTriggerInfoType.DailyTrigger,
+                TimeOfDayTicks = start.Value.Ticks
+            };
+            triggers.Add(daily);
+        }
+        else
+        {
+            daily.TimeOfDayTicks = start.Value.Ticks;
+        }
+
+        worker.Triggers = triggers;
+
+        var formatted = $"{start.Value.Hours:D2}:{start.Value.Minutes:D2}";
+
+        _logger.LogInformation(
+            "TaskMaster: orchestrator trigger synced to {Time}.",
+            formatted);
+
+        return Ok(new { synced = true, time = formatted });
+    }
+
+    /// <summary>
+    /// Reads StartTime directly from the plugin's config XML on disk.
+    /// Used as a fallback when the in-memory configuration is empty
+    /// (a Jellyfin 12.x issue with runtime-installed plugins).
+    /// </summary>
+    private static string? ReadStartTimeFromXml(Plugin plugin)
+    {
+        try
+        {
+            var path = plugin.ConfigurationFilePath;
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+            {
+                return null;
+            }
+
+            var doc = System.Xml.Linq.XDocument.Load(path);
+            var el = doc.Root?.Element("StartTime");
+            var value = el?.Value?.Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static TimeSpan? ParseTimeString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        // Parse "HH:mm" manually. TimeSpan format strings require escaped
+        // colons (@"hh:mm"), which has been a recurring copy/paste hazard.
+        // Simple split is bulletproof.
+        var parts = value.Trim().Split(':');
+        if (parts.Length != 2)
+        {
+            return null;
+        }
+
+        if (!int.TryParse(parts[0], out var hours) ||
+            !int.TryParse(parts[1], out var minutes))
+        {
+            return null;
+        }
+
+        if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59)
+        {
+            return null;
+        }
+
+        return new TimeSpan(hours, minutes, 0);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     //  Helpers
     // ─────────────────────────────────────────────────────────────────────
 
