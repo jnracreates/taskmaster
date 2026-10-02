@@ -4,9 +4,7 @@
      data-require="emby-input,emby-button,emby-checkbox,emby-select">
 
     <style>
-        #TaskTable tr.dragging { opacity: 0.4; }
-        #TaskTable tr.drag-over-top { box-shadow: inset 0 2px 0 0 #00a4dc; }
-        #TaskTable tr.drag-over-bottom { box-shadow: inset 0 -2px 0 0 #00a4dc; }
+
         .tm-drag-handle { cursor: grab; color: #666; text-align: center; user-select: none; }
         .tm-drag-handle:active { cursor: grabbing; }
         .tm-pill {
@@ -584,91 +582,6 @@
                 return e;
             }
 
-                        function renderTaskTable() {
-                var tbody = document.querySelector('#TaskTable tbody');
-                tbody.innerHTML = '';
-
-                var mode = document.getElementById('OrderingMode').value || 'FastestFirst';
-
-                var displayList = jellyfinTasks.slice();
-                if (mode === 'Manual') {
-                    displayList.sort(function (a, b) {
-                        var ea = config.Tasks.find(function (x) { return x.TaskKey === a.Key; });
-                        var eb = config.Tasks.find(function (x) { return x.TaskKey === b.Key; });
-                        var oa = ea ? (ea.Order || 0) : 0;
-                        var ob = eb ? (eb.Order || 0) : 0;
-                        if (oa !== ob) return oa - ob;
-                        return a.Name.localeCompare(b.Name);
-                    });
-                } else {
-                    displayList.sort(function (a, b) { return a.Name.localeCompare(b.Name); });
-                }
-
-                displayList.forEach(function (task) {
-                    var entry = entryFor(task.Key, task.Name);
-                    var tr = document.createElement('tr');
-                    tr.setAttribute('data-task-key', task.Key);
-
-                    var tdHandle = document.createElement('td');
-                    tdHandle.className = 'tm-drag-handle';
-                    tdHandle.innerHTML = '<span class="material-icons" style="font-size:18px;">drag_handle</span>';
-                    tdHandle.title = 'Drag to reorder (switches to Manual mode)';
-                    tr.appendChild(tdHandle);
-
-                    var tdEnabled = document.createElement('td');
-                    var cbEnabled = document.createElement('input');
-                    cbEnabled.type = 'checkbox';
-                    cbEnabled.checked = entry.Enabled;
-                    cbEnabled.addEventListener('change', function () {
-                        entry.Enabled = cbEnabled.checked;
-                    });
-                    tdEnabled.appendChild(cbEnabled);
-                    tr.appendChild(tdEnabled);
-
-                    var tdName = document.createElement('td');
-                    tdName.textContent = task.Name;
-                    tr.appendChild(tdName);
-
-                    var tdOrder = document.createElement('td');
-                    var inOrder = document.createElement('input');
-                    inOrder.type = 'number';
-                    inOrder.style.width = '60px';
-                    inOrder.value = entry.Order;
-                    inOrder.addEventListener('change', function () {
-                        entry.Order = parseInt(inOrder.value, 10) || 0;
-                    });
-                    tdOrder.appendChild(inOrder);
-                    tr.appendChild(tdOrder);
-
-                    var tdDays = document.createElement('td');
-                    DAYS.forEach(function (day, i) {
-                        var label = document.createElement('label');
-                        label.style.marginRight = '8px';
-                        label.style.whiteSpace = 'nowrap';
-
-                        var cb = document.createElement('input');
-                        cb.type = 'checkbox';
-                        cb.checked = entry.RunOnDays.indexOf(day) !== -1;
-                        cb.addEventListener('change', function () {
-                            var idx = entry.RunOnDays.indexOf(day);
-                            if (cb.checked && idx === -1) {
-                                entry.RunOnDays.push(day);
-                            } else if (!cb.checked && idx !== -1) {
-                                entry.RunOnDays.splice(idx, 1);
-                            }
-                        });
-
-                        label.appendChild(cb);
-                        label.appendChild(document.createTextNode(' ' + SHORT[i]));
-                        tdDays.appendChild(label);
-                    });
-                    tr.appendChild(tdDays);
-
-                    tbody.appendChild(tr);
-                });
-
-                enableTaskDragAndDrop();
-            }
             function renderTaskTable() {
                 var container = document.getElementById('TaskList');
                 container.innerHTML = '';
@@ -1129,6 +1042,11 @@
                         ApiClient.updatePluginConfiguration(PLUGIN_ID, config)
                             .then(function () {
                                 Dashboard.processPluginConfigurationUpdateResult();
+                                // Keep the Scheduled Tasks trigger in sync with
+                                // the StartTime set here.
+                                return apiPost('SyncTrigger');
+                            })
+                            .then(function () {
                                 refreshStatus();
                                 refreshDiscovery();
                             });
