@@ -46,7 +46,7 @@ after another in the order you configure.
 
 1. Open Jellyfin **Dashboard → Plugins → Repositories**.
 2. Click **Add**.
-3. Name it `TaskMaster` and paste this URL: https://jnracreates.github.io/jellyfin-plugin-taskmaster/manifest.json
+3. Name it `TaskMaster` and paste this URL: https://raw.githubusercontent.com/jnracreates/taskmaster/main/manifest.json
 4. Save, then go to **Dashboard → Plugins → Catalog**.
 5. Find **TaskMaster** and click **Install**.
 6. Restart Jellyfin.
