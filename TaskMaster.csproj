@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.TaskMaster</RootNamespace>
+    <AssemblyName>Jellyfin.Plugin.TaskMaster</AssemblyName>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Version>1.0.0.0</Version>
+    <JellyfinVersion>12.1.0</JellyfinVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)" />
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration/configPage.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ship the image alongside the DLL so Jellyfin can serve it via the
+         imagePath entry in meta.json. -->
+    <None Include="logo.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('logo.png')" />
+  </ItemGroup>
+
+</Project>

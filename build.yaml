@@ -1,0 +1,28 @@
+name: "TaskMaster"
+guid: "3388f1aa-2b91-4166-9d3b-727ad0755057"
+version: "1.0.0.0"
+targetAbi: "12.1.0.0"
+framework: "net10.0"
+overview: "Sequential task orchestrator for Jellyfin"
+description: >
+  description: >
+  Runs Jellyfin scheduled tasks sequentially inside a configurable time
+  window, ordered by fastest or slowest completion time. Includes backup
+  and restore of native triggers, a take-over/release workflow, and
+  detection of newly added tasks.
+category: "Administration"
+owner: "jnracreates"
+artifacts:
+  - "Jellyfin.Plugin.TaskMaster.dll"
+  - "logo.png"
+changelog: >
+  changelog: >
+  Initial release.
+
+  - Sequential task execution with fastest-first or slowest-first ordering
+  - Configurable time window with overnight support
+  - Per-task day-of-week exclusions
+  - Backup, restore, and download of native task triggers
+  - Take over / Release workflow that preserves startup triggers
+  - Detection of newly added and orphaned tasks
+  - Drag-and-drop task reordering

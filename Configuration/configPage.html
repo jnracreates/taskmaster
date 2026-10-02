@@ -1,0 +1,1149 @@
+<div id="TaskMasterConfigPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox,emby-select">
+
+    <style>
+        #TaskTable tr.dragging { opacity: 0.4; }
+        #TaskTable tr.drag-over-top { box-shadow: inset 0 2px 0 0 #00a4dc; }
+        #TaskTable tr.drag-over-bottom { box-shadow: inset 0 -2px 0 0 #00a4dc; }
+        .tm-drag-handle { cursor: grab; color: #666; text-align: center; user-select: none; }
+        .tm-drag-handle:active { cursor: grabbing; }
+        .tm-pill {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            background: #333; color: #bbb; font-size: 11px;
+        }
+
+        .tm-card {
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: #1e1e1e;
+            transition: border-color 0.15s;
+        }
+        .tm-card:hover { border-color: #555; }
+        .tm-card.dragging { opacity: 0.4; }
+        .tm-card.drag-over-top { border-top: 2px solid #00a4dc; }
+        .tm-card.drag-over-bottom { border-bottom: 2px solid #00a4dc; }
+        .tm-card-head {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            cursor: pointer;
+            gap: 12px;
+        }
+        .tm-card-head:hover { background: #252525; }
+        .tm-card-name {
+            flex: 1;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tm-card-summary { color: #888; font-size: 12px; }
+        .tm-card-chevron {
+            transition: transform 0.15s;
+            color: #666;
+            font-size: 20px;
+        }
+        .tm-card.tm-expanded .tm-card-chevron { transform: rotate(180deg); }
+        .tm-card-details {
+            display: none;
+            padding: 12px 14px 14px 14px;
+            border-top: 1px solid #2a2a2a;
+            font-size: 13px;
+        }
+        .tm-card.tm-expanded .tm-card-details { display: block; }
+        .tm-detail-row { margin-bottom: 10px; }
+        .tm-detail-row:last-child { margin-bottom: 0; }
+        .tm-drag-handle {
+            cursor: grab;
+            color: #555;
+            font-size: 20px;
+            user-select: none;
+        }
+        .tm-drag-handle:active { cursor: grabbing; }
+    </style>
+
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="TaskMasterConfigForm">
+
+                <!-- ===================== WARNING BANNER ===================== -->
+                <div id="DiscoveryBanner"
+                     style="display:none;margin-bottom:16px;padding:14px 18px;border-radius:6px;
+                            background:#5a4a00;color:#ffd75e;border:1px solid #8a7000;">
+                    <div style="font-size:15px;font-weight:600;margin-bottom:6px;">
+                        <span id="DiscoveryBannerText">New tasks detected</span>
+                    </div>
+                    <div id="DiscoveryBannerList"
+                         style="font-size:13px;opacity:0.9;white-space:pre-line;"></div>
+                    <div style="margin-top:10px;">
+                        <button is="emby-button" type="button" id="BtnScrollToDiscovered"
+                                class="raised" style="padding:6px 14px;">
+                            Review now
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ===================== STATUS ===================== -->
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Status</h2>
+                    <div id="StatusStrip"
+                         style="padding:12px;border-radius:6px;background:#2a2a2a;color:#ddd;">
+                        Loading...
+                    </div>
+                </div>
+
+                <!-- ===================== CONTROL ===================== -->
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Control</h2>
+
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button is="emby-button" type="button" id="BtnRunNow" class="raised button-submit">
+                            &#9654; Run now
+                        </button>
+                        <button is="emby-button" type="button" id="BtnPreview" class="raised">
+                            Preview sequence
+                        </button>
+                        <button is="emby-button" type="button" id="BtnBackup" class="raised">
+                            Backup now
+                        </button>
+                        <button is="emby-button" type="button" id="BtnTakeOver" class="raised">
+                            Take over
+                        </button>
+                        <button is="emby-button" type="button" id="BtnRelease" class="raised">
+                            Release
+                        </button>
+                    </div>
+
+                    <div class="fieldDescription" style="margin-top:8px;">
+                        <b>Take over</b> backs up every task's native triggers, then removes
+                        their Daily/Weekly/Interval schedules so only TaskMaster controls them.
+                        Startup triggers are left in place so plugins still initialize on boot.
+                        <b>Release</b> restores the latest backup.
+                        <b>Run now</b> asks before running outside the configured time window.
+                    </div>
+
+                    <pre id="PreviewOutput"
+                         style="display:none;margin-top:12px;padding:12px;background:#1c1c1c;
+                                border-radius:6px;color:#ddd;max-height:320px;overflow:auto;
+                                font-size:13px;white-space:pre;"></pre>
+                </div>
+
+                <!-- ===================== DISCOVERED TASKS ===================== -->
+                <div class="verticalSection" id="DiscoveredSection" style="display:none;">
+                    <h2 class="sectionTitle">Discovered tasks</h2>
+                    <p class="fieldDescription">
+                        These tasks exist in Jellyfin but aren't in your TaskMaster list yet.
+                        Tasks Jellyfin had scheduled come in enabled with no day restrictions.
+                        Tasks with no native trigger (manual-only utilities and one-shot
+                        migrations) are imported <b>disabled</b> so they don't run nightly by
+                        accident &mdash; tick them if you want them in the sequence.
+                    </p>
+                                        <div style="margin-bottom:8px;">
+                        <label style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                            <input type="checkbox" id="DiscoveredSelectAll" />
+                            <span>Select all</span>
+                        </label>
+                    </div>
+                    <div id="DiscoveredBody"></div>
+                    <div style="margin-top:10px;">
+                        <button is="emby-button" type="button" id="BtnImportSelected"
+                                class="raised button-submit">
+                            Import selected
+                        </button>
+                        <button is="emby-button" type="button" id="BtnImportAll"
+                                class="raised" style="margin-left:8px;">
+                            Import all
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ===================== ORPHANS ===================== -->
+                <div class="verticalSection" id="OrphanSection" style="display:none;">
+                    <h2 class="sectionTitle">Orphaned entries</h2>
+                    <p class="fieldDescription">
+                        These TaskMaster entries point at tasks that no longer exist in Jellyfin.
+                        They are harmless (skipped at run time) but you can remove them for
+                        cleanliness.
+                    </p>
+                    <div id="OrphanList"
+                         style="font-size:13px;color:#bbb;margin-bottom:10px;white-space:pre-line;"></div>
+                    <button is="emby-button" type="button" id="BtnPruneOrphans" class="raised">
+                        Remove orphaned entries
+                    </button>
+                </div>
+
+                <!-- ===================== SCHEDULING ===================== -->
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Scheduling</h2>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="OrderingMode">Ordering mode</label>
+                        <select is="emby-select" id="OrderingMode"
+                                class="emby-select-withcolor emby-select">
+                            <option value="FastestFirst">
+                                Fastest first (by average completion time)
+                            </option>
+                            <option value="SlowestFirst">
+                                Slowest first (by average completion time)
+                            </option>
+                            <option value="Manual">Manual (use the Order column)</option>
+                        </select>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="StartTime">
+                            Start time (blank = no limit)
+                        </label>
+                        <input type="time" id="StartTime"
+                               class="emby-input"
+                               style="width:auto;min-width:140px;" />
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="EndTime">
+                            End time (blank = no limit)
+                        </label>
+                        <input type="time" id="EndTime"
+                               class="emby-input"
+                               style="width:auto;min-width:140px;" />
+                        <div class="fieldDescription">
+                            If the end time is earlier than the start time, the window is treated
+                            as overnight.
+                        </div>
+                    </div>
+
+                    <div class="checkboxContainer" style="margin-top:14px;">
+                        <label>
+                            <input type="checkbox" id="AutoImportNewTasks" is="emby-checkbox" />
+                            <span>Auto-import new tasks</span>
+                        </label>
+                        <div class="fieldDescription">
+                            When enabled, any Jellyfin task not in TaskMaster's list is
+                            automatically added at the start of every orchestrator run. Tasks
+                            Jellyfin had scheduled come in enabled; tasks with no native
+                            trigger (manual-only utilities, one-shot migrations) come in
+                            disabled. When off, TaskMaster logs a warning instead.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===================== TASK TABLE ===================== -->
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Tasks</h2>
+                    <p class="fieldDescription">
+                        Enable a task to include it in the sequence. Leave all days unchecked
+                        to run it every day. Tasks marked <span class="tm-pill">manual</span>
+                        were not scheduled by Jellyfin and are typically one-shot utilities
+                        &mdash; leave them unticked unless you have a reason to run them nightly.
+                    </p>
+
+                    <div id="TaskList"></div>
+                </div>
+
+                <!-- ===================== BACKUPS ===================== -->
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Backups</h2>
+                    <p class="fieldDescription">
+                        Snapshots of every task's native triggers. Download a copy for
+                        safekeeping, or restore one to roll back.
+                    </p>
+                    <table id="BackupTable" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th style="width:180px;">Created</th>
+                                <th style="width:100px;">Size</th>
+                                <th style="width:200px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save configuration</span>
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            'use strict';
+
+            var PLUGIN_ID = '3388f1aa-2b91-4166-9d3b-727ad0755057';
+            var API = 'TaskMaster';
+            var ORCH_KEY = 'TaskMasterOrchestrator';
+            var DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            var SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            var config = null;
+            var jellyfinTasks = [];
+
+            function url(path) { return ApiClient.getUrl(API + '/' + path); }
+
+            function apiGet(path) {
+                return ApiClient.ajax({ type: 'GET', url: url(path), dataType: 'json' });
+            }
+
+            function apiPost(path, body) {
+                var opts = { type: 'POST', url: url(path), dataType: 'json' };
+                if (body !== undefined) {
+                    opts.contentType = 'application/json';
+                    opts.data = JSON.stringify(body);
+                }
+                return ApiClient.ajax(opts);
+            }
+
+            // -------------------------------------------------------------
+            //  Status strip
+            // -------------------------------------------------------------
+            function refreshStatus() {
+                apiGet('Status').then(function (s) {
+                    var lines = [];
+                    lines.push('<b>Tasks tracked:</b> ' + s.TotalTasks);
+                    lines.push('<b>Native triggers:</b> ' +
+                        (s.TakenOver
+                            ? '<span style="color:#f5a623">' + s.TasksWithNoTriggers +
+                              ' disabled (taken over)</span>'
+                            : '<span style="color:#4caf50">all active</span>'));
+                    lines.push('<b>Backups:</b> ' + s.BackupCount +
+                        (s.LatestBackupUtc
+                            ? ' (latest: ' + new Date(s.LatestBackupUtc).toLocaleString() + ')'
+                            : ''));
+                    if (s.UnmanagedTaskCount) {
+                        lines.push('<b>Unmanaged tasks:</b> <span style="color:#f5a623">' +
+                            s.UnmanagedTaskCount + '</span>');
+                    }
+                    if (s.OrphanedTaskCount) {
+                        lines.push('<b>Orphaned entries:</b> ' + s.OrphanedTaskCount);
+                    }
+                    document.getElementById('StatusStrip').innerHTML = lines.join('<br/>');
+                });
+            }
+
+            // -------------------------------------------------------------
+            //  Discovery / orphans
+            // -------------------------------------------------------------
+            function refreshDiscovery() {
+                Promise.all([apiGet('Discovered'), apiGet('Orphans')]).then(function (r) {
+                    renderDiscovered(r[0] || []);
+                    renderOrphans(r[1] || []);
+                });
+            }
+
+                        function renderDiscovered(list) {
+                var banner = document.getElementById('DiscoveryBanner');
+                var section = document.getElementById('DiscoveredSection');
+                var container = document.getElementById('DiscoveredBody');
+                container.innerHTML = '';
+
+                if (!list.length) {
+                    banner.style.display = 'none';
+                    section.style.display = 'none';
+                    return;
+                }
+
+                banner.style.display = 'block';
+                document.getElementById('DiscoveryBannerText').textContent =
+                    list.length + ' new task' + (list.length === 1 ? '' : 's') +
+                    ' detected in Jellyfin';
+                document.getElementById('DiscoveryBannerList').textContent =
+                    list.map(function (t) { return '\u2022 ' + t.Name; }).join('\n');
+
+                section.style.display = 'block';
+
+                list.forEach(function (t) {
+                    var row = document.createElement('div');
+                    row.className = 'listItem';
+                    row.style.alignItems = 'flex-start';
+                    row.style.padding = '10px 0';
+
+                    var cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = t.Key;
+                    cb.checked = true;
+                    cb.className = 'discovered-cb';
+                    cb.style.margin = '2px 12px 0 0';
+                    cb.style.flexShrink = '0';
+                    row.appendChild(cb);
+
+                    var icon = document.createElement('span');
+                    icon.className = 'material-icons';
+                    icon.textContent = 'schedule';
+                    icon.style.margin = '2px 12px 0 0';
+                    icon.style.color = '#666';
+                    icon.style.flexShrink = '0';
+                    row.appendChild(icon);
+
+                    var body = document.createElement('div');
+                    body.className = 'listItemBody';
+                    body.style.flex = '1';
+                    body.style.minWidth = '0';
+
+                    var name = document.createElement('h3');
+                    name.className = 'listItemBodyText';
+                    name.style.margin = '0 0 2px 0';
+                    name.style.fontWeight = '500';
+                    name.textContent = t.Name;
+                    body.appendChild(name);
+
+                    if (t.Description) {
+                        var desc = document.createElement('div');
+                        desc.className = 'secondaryText';
+                        desc.style.fontSize = '12px';
+                        desc.style.color = '#999';
+                        desc.style.whiteSpace = 'pre-line';
+                        desc.style.overflow = 'hidden';
+                        desc.style.display = '-webkit-box';
+                        desc.style.webkitLineClamp = '3';
+                        desc.style.webkitBoxOrient = 'vertical';
+                        desc.textContent = t.Description;
+                        body.appendChild(desc);
+                    }
+
+                    row.appendChild(body);
+
+                    var aside = document.createElement('div');
+                    aside.style.textAlign = 'right';
+                    aside.style.minWidth = '220px';
+                    aside.style.fontSize = '12px';
+                    aside.style.color = '#999';
+                    aside.style.paddingLeft = '16px';
+                    aside.style.flexShrink = '0';
+
+                    if (t.Category) {
+                        var pill = document.createElement('div');
+                        pill.className = 'tm-pill';
+                        pill.textContent = t.Category;
+                        aside.appendChild(pill);
+                    }
+
+                    var lastLine = document.createElement('div');
+                    lastLine.style.marginTop = '6px';
+                    if (t.LastRunUtc) {
+                        lastLine.textContent = 'Last: ' +
+                            new Date(t.LastRunUtc).toLocaleString();
+                        if (t.LastStatus && t.LastStatus !== 'Completed') {
+                            var statusEl = document.createElement('span');
+                            statusEl.style.color = '#f5a623';
+                            statusEl.style.marginLeft = '6px';
+                            statusEl.textContent = '(' + t.LastStatus + ')';
+                            lastLine.appendChild(statusEl);
+                        }
+                    } else {
+                        lastLine.textContent = 'Never run';
+                        lastLine.style.color = '#666';
+                    }
+                    aside.appendChild(lastLine);
+
+                    if (t.LastDurationTicks > 0) {
+                        var sec = Math.round(t.LastDurationTicks / 10000000);
+                        var mm = Math.floor(sec / 60);
+                        var ss = sec % 60;
+                        var durLine = document.createElement('div');
+                        durLine.style.marginTop = '2px';
+                        durLine.textContent = 'Duration: ' +
+                            (mm > 0 ? (mm + 'm ' + ss + 's') : (ss + 's'));
+                        aside.appendChild(durLine);
+                    }
+
+                    row.appendChild(aside);
+                    container.appendChild(row);
+                });
+            }
+
+            function renderOrphans(list) {
+                var section = document.getElementById('OrphanSection');
+                var el = document.getElementById('OrphanList');
+
+                if (!list.length) {
+                    section.style.display = 'none';
+                    return;
+                }
+
+                section.style.display = 'block';
+                el.textContent = list
+                    .map(function (t) { return '\u2022 ' + (t.TaskName || t.TaskKey) +
+                        '  (' + t.TaskKey + ')'; })
+                    .join('\n');
+            }
+
+            // -------------------------------------------------------------
+            //  Backups
+            // -------------------------------------------------------------
+            function refreshBackups() {
+                apiGet('Backup/List').then(function (list) {
+                    var tbody = document.querySelector('#BackupTable tbody');
+                    tbody.innerHTML = '';
+
+                    if (!list.length) {
+                        var tr = document.createElement('tr');
+                        var td = document.createElement('td');
+                        td.colSpan = 4;
+                        td.style.color = '#888';
+                        td.textContent = 'No backups yet.';
+                        tr.appendChild(td);
+                        tbody.appendChild(tr);
+                        return;
+                    }
+
+                    list.forEach(function (b) {
+                        var tr = document.createElement('tr');
+
+                        var tdFile = document.createElement('td');
+                        tdFile.textContent = b.FileName;
+                        tdFile.style.fontFamily = 'monospace';
+                        tdFile.style.fontSize = '12px';
+                        tr.appendChild(tdFile);
+
+                        var tdDate = document.createElement('td');
+                        tdDate.textContent = new Date(b.CreatedUtc).toLocaleString();
+                        tr.appendChild(tdDate);
+
+                        var tdSize = document.createElement('td');
+                        tdSize.textContent = Math.round(b.SizeBytes / 1024) + ' KB';
+                        tr.appendChild(tdSize);
+
+                        var tdActions = document.createElement('td');
+
+                        var btnDownload = document.createElement('button');
+                        btnDownload.setAttribute('is', 'emby-button');
+                        btnDownload.type = 'button';
+                        btnDownload.className = 'raised';
+                        btnDownload.style.marginRight = '6px';
+                        btnDownload.textContent = 'Download';
+                        btnDownload.addEventListener('click', function () {
+                            ApiClient.ajax({
+                                type: 'GET',
+                                url: url('Backup/Download?file=' +
+                                    encodeURIComponent(b.FileName)),
+                                dataType: 'text'
+                            }).then(function (content) {
+                                var blob = new Blob([content], { type: 'application/json' });
+                                var blobUrl = URL.createObjectURL(blob);
+                                var a = document.createElement('a');
+                                a.href = blobUrl;
+                                a.download = b.FileName;
+                                a.style.display = 'none';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 2000);
+                            }).catch(function (err) {
+                                Dashboard.alert('Download failed: ' +
+                                    (err && err.statusText ? err.statusText : 'unknown error'));
+                            });
+                        });
+                        tdActions.appendChild(btnDownload);
+
+                        var btnRestore = document.createElement('button');
+                        btnRestore.setAttribute('is', 'emby-button');
+                        btnRestore.type = 'button';
+                        btnRestore.className = 'raised';
+                        btnRestore.textContent = 'Restore';
+                        btnRestore.addEventListener('click', function () {
+                            Dashboard.confirm(
+                                'Restore triggers from ' + b.FileName + '? ' +
+                                'This overwrites the current native triggers of every task.',
+                                'Restore',
+                                function (ok) {
+                                    if (!ok) return;
+                                    apiPost('Backup/Restore?file=' +
+                                        encodeURIComponent(b.FileName)).then(function () {
+                                        Dashboard.alert('Restored from ' + b.FileName + '.');
+                                        refreshStatus();
+                                    });
+                                });
+                        });
+                        tdActions.appendChild(btnRestore);
+
+                        tr.appendChild(tdActions);
+                        tbody.appendChild(tr);
+                    });
+                });
+            }
+
+            // -------------------------------------------------------------
+            //  Task table
+            // -------------------------------------------------------------
+            function entryFor(key, name) {
+                var e = config.Tasks.find(function (x) { return x.TaskKey === key; });
+                if (!e) {
+                    e = { TaskKey: key, TaskName: name, Enabled: true, Order: 0, RunOnDays: [] };
+                    config.Tasks.push(e);
+                } else {
+                    e.TaskName = name;
+                }
+                return e;
+            }
+
+                        function renderTaskTable() {
+                var tbody = document.querySelector('#TaskTable tbody');
+                tbody.innerHTML = '';
+
+                var mode = document.getElementById('OrderingMode').value || 'FastestFirst';
+
+                var displayList = jellyfinTasks.slice();
+                if (mode === 'Manual') {
+                    displayList.sort(function (a, b) {
+                        var ea = config.Tasks.find(function (x) { return x.TaskKey === a.Key; });
+                        var eb = config.Tasks.find(function (x) { return x.TaskKey === b.Key; });
+                        var oa = ea ? (ea.Order || 0) : 0;
+                        var ob = eb ? (eb.Order || 0) : 0;
+                        if (oa !== ob) return oa - ob;
+                        return a.Name.localeCompare(b.Name);
+                    });
+                } else {
+                    displayList.sort(function (a, b) { return a.Name.localeCompare(b.Name); });
+                }
+
+                displayList.forEach(function (task) {
+                    var entry = entryFor(task.Key, task.Name);
+                    var tr = document.createElement('tr');
+                    tr.setAttribute('data-task-key', task.Key);
+
+                    var tdHandle = document.createElement('td');
+                    tdHandle.className = 'tm-drag-handle';
+                    tdHandle.innerHTML = '<span class="material-icons" style="font-size:18px;">drag_handle</span>';
+                    tdHandle.title = 'Drag to reorder (switches to Manual mode)';
+                    tr.appendChild(tdHandle);
+
+                    var tdEnabled = document.createElement('td');
+                    var cbEnabled = document.createElement('input');
+                    cbEnabled.type = 'checkbox';
+                    cbEnabled.checked = entry.Enabled;
+                    cbEnabled.addEventListener('change', function () {
+                        entry.Enabled = cbEnabled.checked;
+                    });
+                    tdEnabled.appendChild(cbEnabled);
+                    tr.appendChild(tdEnabled);
+
+                    var tdName = document.createElement('td');
+                    tdName.textContent = task.Name;
+                    tr.appendChild(tdName);
+
+                    var tdOrder = document.createElement('td');
+                    var inOrder = document.createElement('input');
+                    inOrder.type = 'number';
+                    inOrder.style.width = '60px';
+                    inOrder.value = entry.Order;
+                    inOrder.addEventListener('change', function () {
+                        entry.Order = parseInt(inOrder.value, 10) || 0;
+                    });
+                    tdOrder.appendChild(inOrder);
+                    tr.appendChild(tdOrder);
+
+                    var tdDays = document.createElement('td');
+                    DAYS.forEach(function (day, i) {
+                        var label = document.createElement('label');
+                        label.style.marginRight = '8px';
+                        label.style.whiteSpace = 'nowrap';
+
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = entry.RunOnDays.indexOf(day) !== -1;
+                        cb.addEventListener('change', function () {
+                            var idx = entry.RunOnDays.indexOf(day);
+                            if (cb.checked && idx === -1) {
+                                entry.RunOnDays.push(day);
+                            } else if (!cb.checked && idx !== -1) {
+                                entry.RunOnDays.splice(idx, 1);
+                            }
+                        });
+
+                        label.appendChild(cb);
+                        label.appendChild(document.createTextNode(' ' + SHORT[i]));
+                        tdDays.appendChild(label);
+                    });
+                    tr.appendChild(tdDays);
+
+                    tbody.appendChild(tr);
+                });
+
+                enableTaskDragAndDrop();
+            }
+            function renderTaskTable() {
+                var container = document.getElementById('TaskList');
+                container.innerHTML = '';
+
+                var mode = document.getElementById('OrderingMode').value || 'FastestFirst';
+
+                var displayList = jellyfinTasks.slice();
+                if (mode === 'Manual') {
+                    displayList.sort(function (a, b) {
+                        var ea = config.Tasks.find(function (x) { return x.TaskKey === a.Key; });
+                        var eb = config.Tasks.find(function (x) { return x.TaskKey === b.Key; });
+                        var oa = ea ? (ea.Order || 0) : 0;
+                        var ob = eb ? (eb.Order || 0) : 0;
+                        if (oa !== ob) return oa - ob;
+                        return a.Name.localeCompare(b.Name);
+                    });
+                } else {
+                    displayList.sort(function (a, b) { return a.Name.localeCompare(b.Name); });
+                }
+
+                function daysSummary(entry) {
+                    if (!entry.RunOnDays || entry.RunOnDays.length === 0) return 'Every day';
+                    return entry.RunOnDays
+                        .map(function (d) { return SHORT[DAYS.indexOf(d)]; })
+                        .join(', ');
+                }
+
+                displayList.forEach(function (task) {
+                    var entry = entryFor(task.Key, task.Name);
+
+                    var card = document.createElement('div');
+                    card.className = 'tm-card';
+                    card.setAttribute('data-task-key', task.Key);
+
+                    // -------- header row --------
+                    var head = document.createElement('div');
+                    head.className = 'tm-card-head';
+
+                    var handle = document.createElement('span');
+                    handle.className = 'tm-drag-handle material-icons';
+                    handle.textContent = 'drag_handle';
+                    handle.title = 'Drag to reorder';
+                    head.appendChild(handle);
+
+                    var cbEnabled = document.createElement('input');
+                    cbEnabled.type = 'checkbox';
+                    cbEnabled.checked = entry.Enabled;
+                    cbEnabled.addEventListener('click', function (e) { e.stopPropagation(); });
+                    cbEnabled.addEventListener('change', function () {
+                        entry.Enabled = cbEnabled.checked;
+                    });
+                    head.appendChild(cbEnabled);
+
+                    var nameEl = document.createElement('span');
+                    nameEl.className = 'tm-card-name';
+                    nameEl.textContent = task.Name;
+                    head.appendChild(nameEl);
+
+                    if (entry.WasManualOnly) {
+                        var manualPill = document.createElement('span');
+                        manualPill.className = 'tm-pill';
+                        manualPill.style.marginRight = '8px';
+                        manualPill.textContent = 'manual';
+                        manualPill.title = 'Not scheduled by Jellyfin';
+                        head.appendChild(manualPill);
+                    }
+
+                    var summary = document.createElement('span');
+                    summary.className = 'tm-card-summary';
+                    summary.textContent = daysSummary(entry);
+                    head.appendChild(summary);
+
+                    var chevron = document.createElement('span');
+                    chevron.className = 'tm-card-chevron material-icons';
+                    chevron.textContent = 'expand_more';
+                    head.appendChild(chevron);
+
+                    card.appendChild(head);
+
+                    // -------- details (hidden until expanded) --------
+                    var details = document.createElement('div');
+                    details.className = 'tm-card-details';
+
+                    var orderLine = document.createElement('div');
+                    orderLine.className = 'tm-detail-row';
+
+                    var orderLabel = document.createElement('label');
+                    orderLabel.textContent = 'Order: ';
+                    orderLabel.style.marginRight = '8px';
+                    orderLine.appendChild(orderLabel);
+
+                    var inOrder = document.createElement('input');
+                    inOrder.type = 'number';
+                    inOrder.style.width = '70px';
+                    inOrder.value = entry.Order;
+                    inOrder.addEventListener('click', function (e) { e.stopPropagation(); });
+                    inOrder.addEventListener('change', function () {
+                        entry.Order = parseInt(inOrder.value, 10) || 0;
+                    });
+                    orderLine.appendChild(inOrder);
+                    details.appendChild(orderLine);
+
+                    var daysLine = document.createElement('div');
+                    daysLine.className = 'tm-detail-row';
+
+                    var daysLabel = document.createElement('span');
+                    daysLabel.textContent = 'Days: ';
+                    daysLabel.style.marginRight = '8px';
+                    daysLine.appendChild(daysLabel);
+
+                    DAYS.forEach(function (day, i) {
+                        var label = document.createElement('label');
+                        label.style.marginRight = '10px';
+                        label.style.whiteSpace = 'nowrap';
+
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = entry.RunOnDays.indexOf(day) !== -1;
+                        cb.addEventListener('click', function (e) { e.stopPropagation(); });
+                        cb.addEventListener('change', function () {
+                            var idx = entry.RunOnDays.indexOf(day);
+                            if (cb.checked && idx === -1) entry.RunOnDays.push(day);
+                            else if (!cb.checked && idx !== -1) entry.RunOnDays.splice(idx, 1);
+                            summary.textContent = daysSummary(entry);
+                        });
+
+                        label.appendChild(cb);
+                        label.appendChild(document.createTextNode(' ' + SHORT[i]));
+                        daysLine.appendChild(label);
+                    });
+                    details.appendChild(daysLine);
+
+                    card.appendChild(details);
+
+                    // click anywhere on header (except a checkbox) toggles
+                    head.addEventListener('click', function (e) {
+                        if (e.target.tagName === 'INPUT') return;
+                        card.classList.toggle('tm-expanded');
+                    });
+
+                    container.appendChild(card);
+                });
+
+                enableTaskDragAndDrop();
+            }
+            // -------------------------------------------------------------
+            //  Drag to reorder
+            // -------------------------------------------------------------
+            var _draggingRow = null;
+
+            function enableTaskDragAndDrop() {
+                var container = document.getElementById('TaskList');
+                if (!container) return;
+
+                var cards = Array.from(container.querySelectorAll('.tm-card'));
+
+                cards.forEach(function (card) {
+                    var handle = card.querySelector('.tm-drag-handle');
+                    if (!handle) return;
+
+                    card.setAttribute('draggable', 'true');
+
+                    var dragArmed = false;
+                    handle.addEventListener('mousedown', function () { dragArmed = true; });
+                    handle.addEventListener('mouseup', function () { dragArmed = false; });
+                    document.addEventListener('mouseup', function () { dragArmed = false; });
+
+                    card.addEventListener('dragstart', function (e) {
+                        if (!dragArmed) {
+                            e.preventDefault();
+                            return;
+                        }
+                        _draggingRow = card;
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', card.getAttribute('data-task-key') || '');
+                        card.classList.add('dragging');
+                    });
+
+                    card.addEventListener('dragend', function () {
+                        card.classList.remove('dragging');
+                        cards.forEach(function (c) {
+                            c.classList.remove('drag-over-top');
+                            c.classList.remove('drag-over-bottom');
+                        });
+                        _draggingRow = null;
+                        commitTaskOrder();
+                    });
+
+                    card.addEventListener('dragover', function (e) {
+                        if (!_draggingRow || _draggingRow === card) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+
+                        var rect = card.getBoundingClientRect();
+                        var before = e.clientY < rect.top + rect.height / 2;
+
+                        cards.forEach(function (c) {
+                            if (c !== card) {
+                                c.classList.remove('drag-over-top');
+                                c.classList.remove('drag-over-bottom');
+                            }
+                        });
+                        card.classList.toggle('drag-over-top', before);
+                        card.classList.toggle('drag-over-bottom', !before);
+                    });
+
+                    card.addEventListener('dragleave', function () {
+                        card.classList.remove('drag-over-top');
+                        card.classList.remove('drag-over-bottom');
+                    });
+
+                    card.addEventListener('drop', function (e) {
+                        if (!_draggingRow || _draggingRow === card) return;
+                        e.preventDefault();
+
+                        var rect = card.getBoundingClientRect();
+                        var before = e.clientY < rect.top + rect.height / 2;
+
+                        if (before) {
+                            container.insertBefore(_draggingRow, card);
+                        } else {
+                            container.insertBefore(_draggingRow, card.nextSibling);
+                        }
+                    });
+                });
+            }
+
+            function commitTaskOrder() {
+                var container = document.getElementById('TaskList');
+                var cards = Array.from(container.querySelectorAll('.tm-card'));
+
+                cards.forEach(function (card, index) {
+                    var key = card.getAttribute('data-task-key');
+                    var entry = config.Tasks.find(function (x) { return x.TaskKey === key; });
+                    if (entry) entry.Order = index;
+                });
+
+                var modeSelect = document.getElementById('OrderingMode');
+                if (modeSelect.value !== 'Manual') {
+                    modeSelect.value = 'Manual';
+                    Dashboard.alert('Ordering mode set to Manual. ' +
+                        'Click Save configuration to persist.');
+                }
+            }
+
+            // -------------------------------------------------------------
+            //  Save / reload helpers
+            // -------------------------------------------------------------
+            function reloadConfig() {
+                return ApiClient.getPluginConfiguration(PLUGIN_ID).then(function (c) {
+                    config = c;
+                    if (!config.Tasks) config.Tasks = [];
+                    return ApiClient.getScheduledTasks();
+                }).then(function (tasks) {
+                    jellyfinTasks = tasks.filter(function (t) { return t.Key !== ORCH_KEY; });
+                    renderAll();
+                });
+            }
+
+            function renderAll() {
+                document.getElementById('OrderingMode').value = config.OrderingMode || 'FastestFirst';
+                document.getElementById('StartTime').value = config.StartTime || '';
+                document.getElementById('EndTime').value = config.EndTime || '';
+                document.getElementById('AutoImportNewTasks').checked = !!config.AutoImportNewTasks;
+
+                renderTaskTable();
+                refreshStatus();
+                refreshDiscovery();
+                refreshBackups();
+            }
+
+            // -------------------------------------------------------------
+            //  Time window check (client-side, matches server logic)
+            // -------------------------------------------------------------
+            function isOutsideWindow() {
+                var start = document.getElementById('StartTime').value;
+                var end = document.getElementById('EndTime').value;
+
+                if (!start || !end) return false;
+
+                function parse(s) {
+                    var parts = s.split(':');
+                    if (parts.length !== 2) return null;
+                    var h = parseInt(parts[0], 10);
+                    var m = parseInt(parts[1], 10);
+                    if (isNaN(h) || isNaN(m)) return null;
+                    return h * 60 + m;
+                }
+
+                var sMin = parse(start);
+                var eMin = parse(end);
+                if (sMin === null || eMin === null) return false;
+
+                var now = new Date();
+                var nMin = now.getHours() * 60 + now.getMinutes();
+
+                if (sMin <= eMin) {
+                    return !(nMin >= sMin && nMin <= eMin);
+                }
+                return !(nMin >= sMin || nMin <= eMin);
+            }
+
+            // -------------------------------------------------------------
+            //  Button wiring
+            // -------------------------------------------------------------
+            function wireButtons() {
+                document.getElementById('BtnRunNow').addEventListener('click', function () {
+                    function go() {
+                        apiPost('RunNow').then(function () {
+                            Dashboard.alert('TaskMaster sequence started. ' +
+                                'Watch Dashboard > Scheduled Tasks for progress.');
+                        });
+                    }
+
+                    if (isOutsideWindow()) {
+                        Dashboard.confirm(
+                            'The current time is outside the configured time window ' +
+                            '(' + document.getElementById('StartTime').value + ' to ' +
+                            document.getElementById('EndTime').value + '). ' +
+                            'Run anyway?',
+                            'Run anyway',
+                            function (ok) { if (ok) go(); });
+                    } else {
+                        go();
+                    }
+                });
+
+                document.getElementById('BtnPreview').addEventListener('click', function () {
+                    apiGet('Preview').then(function (list) {
+                        var el = document.getElementById('PreviewOutput');
+                        if (!list || !list.length) {
+                            el.textContent = 'No tasks scheduled for today.';
+                        } else {
+                            el.textContent = list.map(function (x) {
+                                var avg = '';
+                                if (x.AverageTicks > 0) {
+                                    var sec = Math.round(x.AverageTicks / 10000000);
+                                    var mm = Math.floor(sec / 60);
+                                    var ss = sec % 60;
+                                    avg = '  [avg ' + mm + 'm ' + ss + 's from ' +
+                                        x.AverageSource + ']';
+                                }
+                                return x.Index + '. ' + x.TaskName +
+                                    '  (' + x.TaskKey + ')' + avg;
+                            }).join('\n');
+                        }
+                        el.style.display = 'block';
+                    });
+                });
+
+                document.getElementById('BtnBackup').addEventListener('click', function () {
+                    apiPost('Backup/Create').then(function (r) {
+                        Dashboard.alert('Backup created: ' + r.file);
+                        refreshStatus();
+                        refreshBackups();
+                    });
+                });
+
+                document.getElementById('BtnTakeOver').addEventListener('click', function () {
+                    Dashboard.confirm(
+                        'This will back up all current triggers, then remove every ' +
+                        "task's scheduled (Daily/Weekly/Interval) trigger so only " +
+                        'TaskMaster runs them. Startup triggers are preserved so ' +
+                        'plugins still initialize when Jellyfin boots. Continue?',
+                        'Take over',
+                        function (ok) {
+                            if (!ok) return;
+                            apiPost('TakeOver').then(function (r) {
+                                Dashboard.alert('Took over ' + r.disabled + ' task(s); ' +
+                                    'imported ' + r.imported + ' new entr' +
+                                    (r.imported === 1 ? 'y' : 'ies') + ' into TaskMaster.');
+                                reloadConfig();
+                            });
+                        });
+                });
+
+                document.getElementById('BtnRelease').addEventListener('click', function () {
+                    Dashboard.confirm(
+                        'Restore native triggers from the latest backup? TaskMaster will ' +
+                        'still exist, but tasks will run on their own schedule again.',
+                        'Release',
+                        function (ok) {
+                            if (!ok) return;
+                            apiPost('Release').then(function () {
+                                Dashboard.alert('Released.');
+                                refreshStatus();
+                            });
+                        });
+                });
+
+                document.getElementById('BtnScrollToDiscovered').addEventListener('click', function () {
+                    document.getElementById('DiscoveredSection')
+                        .scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+
+                document.getElementById('DiscoveredSelectAll').addEventListener('change', function (e) {
+                    var checked = e.target.checked;
+                    document.querySelectorAll('.discovered-cb').forEach(function (cb) {
+                        cb.checked = checked;
+                    });
+                });
+
+                document.getElementById('BtnImportSelected').addEventListener('click', function () {
+                    var keys = Array.from(document.querySelectorAll('.discovered-cb'))
+                        .filter(function (cb) { return cb.checked; })
+                        .map(function (cb) { return cb.value; });
+                    if (!keys.length) { Dashboard.alert('Nothing selected.'); return; }
+                    importKeys(keys);
+                });
+
+                document.getElementById('BtnImportAll').addEventListener('click', function () {
+                    apiGet('Discovered').then(function (list) {
+                        importKeys(list.map(function (t) { return t.Key; }));
+                    });
+                });
+
+                document.getElementById('BtnPruneOrphans').addEventListener('click', function () {
+                    Dashboard.confirm(
+                        'Remove all orphaned entries from the TaskMaster config?',
+                        'Remove',
+                        function (ok) {
+                            if (!ok) return;
+                            apiPost('PruneOrphans').then(function (r) {
+                                Dashboard.alert('Removed ' + r.removed + ' entry(ies).');
+                                reloadConfig();
+                            });
+                        });
+                });
+            }
+
+            function importKeys(keys) {
+                if (!keys.length) return;
+                apiPost('Import', { Keys: keys }).then(function (r) {
+                    Dashboard.alert('Imported ' + r.added + ' task(s).');
+                    reloadConfig();
+                });
+            }
+
+            // -------------------------------------------------------------
+            //  Form submit
+            // -------------------------------------------------------------
+            function wireModeChange() {
+                document.getElementById('OrderingMode').addEventListener('change', function () {
+                    renderTaskTable();
+                });
+            }
+
+            function wireSubmit() {
+                document.getElementById('TaskMasterConfigForm')
+                    .addEventListener('submit', function (ev) {
+                        ev.preventDefault();
+                        config.OrderingMode = document.getElementById('OrderingMode').value;
+                        config.StartTime = document.getElementById('StartTime').value || null;
+                        config.EndTime = document.getElementById('EndTime').value || null;
+                        config.AutoImportNewTasks =
+                            document.getElementById('AutoImportNewTasks').checked;
+
+                        ApiClient.updatePluginConfiguration(PLUGIN_ID, config)
+                            .then(function () {
+                                Dashboard.processPluginConfigurationUpdateResult();
+                                refreshStatus();
+                                refreshDiscovery();
+                            });
+                        return false;
+                    });
+            }
+
+            // -------------------------------------------------------------
+            //  Boot
+            // -------------------------------------------------------------
+            reloadConfig().then(function () {
+                wireButtons();
+                wireModeChange();
+                wireSubmit();
+            });
+        })();
+    </script>
+</div>
