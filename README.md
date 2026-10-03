@@ -35,6 +35,11 @@ after another in the order you configure.
   the configured time window, with a confirmation prompt
 - **Stop button** — halts the sequence after the current task finishes
 
+<img width="831" height="798" alt="taskmaster1" src="https://github.com/user-attachments/assets/20b810e9-0946-46bb-8b16-0743ed661fa9" />
+
+<img width="828" height="1125" alt="taskmaster2" src="https://github.com/user-attachments/assets/fd995038-b088-4062-a511-e07e3e96db7f" />
+
+
 ## Requirements
 
 - Jellyfin **12.1** or later
